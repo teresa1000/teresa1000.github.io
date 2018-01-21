@@ -1,0 +1,143 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "T. Żanowska"
+date: "21 stycznia 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## 1. Overview and background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+In this project, there will be used the data from accelerometers on the belt, forearm, arm, and dumbell of 6 participant. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The five ways are exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Only Class A corresponds to correct performance. The goal of this project is to predict the manner in which they did the exercise. 
+
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har 
+
+## 2. Data processing
+### Preparing
+
+```{r}
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+library(corrplot)
+library(AppliedPredictiveModeling)
+```
+
+### Import the data
+
+Set the URL for the download
+
+```{r}
+UrlTrain <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+UrlTest  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+```
+
+Download the datasets
+
+```{r}
+training <- read.csv(url(UrlTrain))
+testing  <- read.csv(url(UrlTest))
+```
+
+Partition with the training dataset 
+
+```{r}
+set.seed(12345)
+inTrain  <- createDataPartition(training$classe, p=0.6, list=FALSE)
+TrainSet <- training[inTrain, ]
+TestSet  <- training[-inTrain, ]
+dim(TrainSet)
+dim(TestSet)
+```
+
+### Cleaning data
+
+Remove variables with Nearly Zero Variance
+
+```{r}
+NZV <- nearZeroVar(TrainSet)
+TrainSet <- TrainSet[, -NZV]
+TestSet  <- TestSet[, -NZV]
+dim(TrainSet)
+dim(TestSet)
+```
+
+Remove variables that are mostly NA
+
+```{r}
+mostNA    <- sapply(TrainSet, function(x) mean(is.na(x))) > 0.95
+TrainSet <- TrainSet[, mostNA==FALSE]
+TestSet  <- TestSet[, mostNA==FALSE]
+dim(TrainSet)
+dim(TestSet)
+```
+
+Remove columns 1 to 5 - identification variables
+
+```{r}
+TrainSet <- TrainSet[, -(1:5)]
+TestSet  <- TestSet[, -(1:5)]
+dim(TrainSet)
+dim(TestSet)
+```
+
+## 3. Prediction Algorithms
+
+### Random Forests model
+
+```{r}
+set.seed(12345)
+modFitRF <- randomForest(classe ~. , data=TrainSet)
+predictRF <- predict(modFitRF, TestSet, type = "class")
+confMatRF <- confusionMatrix(predictRF, TestSet$classe)
+confMatRF
+# plot matrix results
+plot(confMatRF$table, col = confMatRF$byClass, 
+     main = paste("Random Forest - Accuracy =",
+                  round(confMatRF$overall['Accuracy'], 4)))
+```
+
+### Decision Trees model
+
+```{r}
+set.seed(12345)
+modFitDT <- rpart(classe ~ ., data=TrainSet, method="class")
+predictDT <- predict(modFitDT, TestSet, type = "class")
+confMatDT<-confusionMatrix(predictDT, TestSet$classe)
+confMatDT# plot matrix results
+plot(confMatDT$table, col = confMatDT$byClass, 
+     main = paste("Decision Trees - Accuracy =",
+                  round(confMatDT$overall['Accuracy'], 4)))
+
+```
+
+For this dataset, Random Forests method is better than Decission Trees.
+
+Random Forests - the accuracy rate is 0.963, and so the out-of-sample error rate is 0.037.
+
+Decission Trees - the accuracy rate is 0.7958, and so the out-of-sample error rate is 0.2042 
+
+Therefore, Random Forests method was chosen to predict classes for the test samples.
+
+
+## 4. Predicting for the Test Samples
+
+The Random Forests model wil be used to predict the outcome variable classe for the testing set.
+
+
+```{r}
+finalPredictions<-predict(modFitRF,newdata=testing)
+finalPredictions
+```
+
+
+
+
+
